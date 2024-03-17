@@ -6,19 +6,19 @@ import sys
 import pandas as pd
 import os
 import time
+import math
 
-
-# delete some character and split the sentence to words
-def split_count_words(sentence, tag):
+# Modify the split_count_words function to return just words for predict_class
+def split_count_words(sentence, tag=None):
     massive_words = []
     chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(']
     for char in chars_to_remove:
         sentence = sentence.replace(char, '')
-    sentence = sentence.split()
-    sentence = [element.lower() for element in sentence]
-    for each in sentence:
-        massive_words.append((str(each), int(tag)))
-    return massive_words
+    words = sentence.split()
+    words = [element.lower() for element in words]
+    if tag is not None:
+        words = [(str(word), int(tag)) for word in words]
+    return words
 
 
 # count the tag from massive dataset to store dataset
@@ -166,3 +166,85 @@ if __name__ == '__main__':
     # This part placehold for Sentence with naive bayes classifier
     # P(label|S) = P(label)*P(word1|label)*P(word2|label)...
 
+
+###### Test classifiers ######
+def calculate_class_probabilities(train_data):
+    class_counts = {k: 0 for k in train_data[next(iter(train_data))].keys() if k != 'total'}
+    total_counts = 0
+
+    for word, tags in train_data.items():
+        for class_label in class_counts:
+            class_counts[class_label] += tags[class_label]
+            total_counts += tags[class_label]
+
+    class_probabilities = {class_label: (class_counts[class_label] / total_counts) for class_label in class_counts}
+    return class_probabilities
+
+def predict_class(words, classifier, class_probabilities, vocab_size):
+    class_scores = {class_label: math.log(class_probability, 10) for class_label, class_probability in class_probabilities.items()}
+
+    for word in words:
+        if word in classifier:  # Only consider words that are in the classifier
+            for class_label in class_scores.keys():
+                word_freq = classifier[word].get(class_label, 0) + 1  # Laplace smoothing
+                class_scores[class_label] += math.log(word_freq / (class_probabilities[class_label] + vocab_size), 10)
+
+    predicted_class = max(class_scores, key=class_scores.get)
+    return predicted_class
+
+def test_classifier(test_data, classifier):
+    class_probabilities = calculate_class_probabilities(classifier)
+    vocab_size = len(classifier)
+
+    # Initialize counters for metrics
+    true_positives = true_negatives = false_positives = false_negatives = 0
+
+    for sentence_data in test_data:
+        sentence, actual_class = sentence_data
+        predicted_class = predict_class(sentence, classifier, class_probabilities, vocab_size)
+
+        if actual_class == predicted_class:
+            if actual_class == 'five':  # Assuming 'five' is the positive class
+                true_positives += 1
+            else:
+                true_negatives += 1
+        else:
+            if actual_class == 'five':
+                false_negatives += 1
+            else:
+                false_positives += 1
+
+    # Calculate metrics
+    sensitivity = true_positives / (true_positives + false_negatives) if true_positives + false_negatives else 0
+    specificity = true_negatives / (true_negatives + false_positives) if true_negatives + false_positives else 0
+    precision = true_positives / (true_positives + false_positives) if true_positives + false_positives else 0
+    accuracy = (true_positives + true_negatives) / (true_positives + true_negatives + false_positives + false_negatives)
+    f_score = 2 * precision * sensitivity / (precision + sensitivity) if precision + sensitivity else 0
+
+    # Print out metrics
+    print(f"True Positives: {true_positives}")
+    print(f"True Negatives: {true_negatives}")
+    print(f"False Positives: {false_positives}")
+    print(f"False Negatives: {false_negatives}")
+    print(f"Sensitivity (Recall): {sensitivity:.4f}")
+    print(f"Specificity: {specificity:.4f}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Accuracy: {accuracy:.4f}")
+    print(f"F-Score: {f_score:.4f}")
+
+
+test_data = load_from_local('test.json', './dataset/test')
+classifier = load_from_local('80.json', './dataset/train')
+
+# Create test_data_formatted as a list of tuples (words, actual_class)
+test_data_formatted = []
+for actual_class, sentences in test_data.items():
+    for sentence in sentences:
+        words = split_count_words(sentence)
+        test_data_formatted.append((words, actual_class))
+
+# Ensure the class_probabilities calculation is correct and matches your JSON structure
+class_probabilities = calculate_class_probabilities(classifier)
+
+# Run the classifier test and print metrics
+test_classifier(test_data_formatted, classifier)
