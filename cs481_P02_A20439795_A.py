@@ -5,42 +5,50 @@ import json
 import sys
 import pandas as pd
 import os
+import time
 
 
-# 删除干扰物并且标记单词
+# delete some character and split the sentence to words
 def split_count_words(sentence, tag):
     massive_words = []
-    chars_to_remove = [',', '.', '-', '!', '\"']
+    chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(']
     for char in chars_to_remove:
         sentence = sentence.replace(char, '')
     sentence = sentence.split()
     sentence = [element.lower() for element in sentence]
     for each in sentence:
-        massive_words.append((each, tag))
+        massive_words.append((str(each), int(tag)))
     return massive_words
 
 
-# 数数， 返回只有一个label的数值，假如需要别的label，需要从main那改变
-def count_words(dataset, tag):
+# count the tag from massive dataset to store dataset
+def count_words(dataset):
     store_data = {}
-    for i in dataset:
-        # create a key if dictionary doesn't exist a key
-        if i[0] not in store_data:
-            store_data[i[0]] = [tag, 0, 0, 0]
+    for x in dataset:
+        word, tag = x[0], x[1]
+        if not isinstance(word, str):
+            word = str(word)
+        if word not in store_data:
+            store_data[word] = {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0}
         # total count
-        store_data[i[0]][1] += 1
-        # count with tag or count without tag
-        if i[1] == tag:
-            store_data[i[0]][2] += 1
-        else:
-            store_data[i[0]][3] += 1
+        store_data[word]["total"] += 1
+        if tag == 1:
+            store_data[word]["one"] += 1
+        elif tag == 2:
+            store_data[word]["two"] += 1
+        elif tag == 3:
+            store_data[word]["three"] += 1
+        elif tag == 4:
+            store_data[word]["four"] += 1
+        elif tag == 5:
+            store_data[word]["five"] += 1
     return store_data
 
 
 def write_to_local(dataset, file_name, dir_results):
     full_path = os.path.join(dir_results, file_name)
     with open(full_path, 'w') as file:
-        json.dump(dataset, file)
+        json.dump(dataset, file, indent=2)
 
 
 def load_from_local(file_name, dir_results):
@@ -56,63 +64,62 @@ def pre_process_train_data(t_size: int):
     df = pd.read_csv('dataset/Reviews.csv')
     t_size_f = t_size / 100
     # print(f'[=TEST=] train_size in method = {t_size_f}')
-    data_train = df[1:int(len(df) * t_size_f)]
-    train_data_simplify = data_train.iloc[:, [6, 8, 9]]
-    massive_words_dataset = []
-    for i in range(1, len(train_data_simplify)):
-        row = train_data_simplify.iloc[i]
+    data_train = df[:int(len(df) * t_size_f)]
+    print(f'Length of the train dataset size: {len(data_train)}')
+    _train_start = time.time()
+    train_data_simplify = data_train[["Score", "Summary", "Text"]]
+    train_dataset = pd.DataFrame(train_data_simplify)
+    massive_train_dataset = []
+    for i in range(1, len(train_dataset)):
+        row = train_dataset.iloc[i]
         tag = row.iloc[0]
         summary = row.iloc[1]
         text = row.iloc[2]
         sentence = f'{summary} {text}'
-        massive_words_dataset = split_count_words(sentence, tag)
-    train_dataset_1 = count_words(massive_words_dataset, 1)
-    train_dataset_2 = count_words(massive_words_dataset, 2)
-    train_dataset_3 = count_words(massive_words_dataset, 3)
-    train_dataset_4 = count_words(massive_words_dataset, 4)
-    train_dataset_5 = count_words(massive_words_dataset, 5)
-    write_to_local(train_dataset_1, f'{t_size}_1.json', dir_path)
-    write_to_local(train_dataset_2, f'{t_size}_2.json', dir_path)
-    write_to_local(train_dataset_3, f'{t_size}_3.json', dir_path)
-    write_to_local(train_dataset_4, f'{t_size}_4.json', dir_path)
-    write_to_local(train_dataset_5, f'{t_size}_5.json', dir_path)
-    return train_dataset_1, train_dataset_2, train_dataset_3, train_dataset_4, train_dataset_5
+        massive_train_dataset.extend(split_count_words(sentence, tag))
+    print('[TRAIN PART] split words finished... Beginning count words')
+
+    train_dataset = count_words(massive_train_dataset)
+    write_to_local(train_dataset, f'{t_size}.json', dir_path)
+    _train_enclape = time.time() - _train_start
+    print(f"total train time take: {_train_enclape}")
+    return train_dataset
 
 
 def pre_process_test_data():
     dir_path = './dataset/test'
-    df = pd.read_csv('dataset/Reviews.csv')
-    # this +1 because the column name is existing on the row 0 in df
-    # to eliminate it, must be +1
-    data_test = df[int(len(df) * 0.8) + 1:]
-    test_data_simplify = data_test.iloc[:, [6, 8, 9]]
-    for i in range(1, len(test_data_simplify)):
-        row = test_data_simplify.iloc[i]
+    Reviews_dataset = pd.read_csv('dataset/Reviews.csv')
+    # remove useless column
+    Reviews_dataset = Reviews_dataset[['Score', 'Summary', 'Text']]
+    # get last 20% of data
+    test_dataset = Reviews_dataset[int(len(Reviews_dataset)*0.8):]
+    print(f'Length of the test dataset size: {len(test_dataset)}')
+    _test_start = time.time()
+    test_dataset = pd.DataFrame(test_dataset)
+    massive_test_dataset = []
+    for i in range(len(test_dataset)):
+        row = test_dataset.iloc[i]
         tag = row.iloc[0]
         summary = row.iloc[1]
         text = row.iloc[2]
         sentence = f"{summary} {text}"
-        massive_words_dataset = split_count_words(sentence, tag)
-    test_dataset_1 = count_words(massive_words_dataset, 1)
-    test_dataset_2 = count_words(massive_words_dataset, 2)
-    test_dataset_3 = count_words(massive_words_dataset, 3)
-    test_dataset_4 = count_words(massive_words_dataset, 4)
-    test_dataset_5 = count_words(massive_words_dataset, 5)
-    write_to_local(test_dataset_1, f'test_1.json', dir_path)
-    write_to_local(test_dataset_2, f'test_2.json', dir_path)
-    write_to_local(test_dataset_3, f'test_3.json', dir_path)
-    write_to_local(test_dataset_4, f'test_4.json', dir_path)
-    write_to_local(test_dataset_5, f'test_5.json', dir_path)
-    return test_dataset_1, test_dataset_2, test_dataset_3, test_dataset_4, test_dataset_5
+        massive_test_dataset.extend(split_count_words(sentence, tag))
+    print("[TEST PART] split words finished... Beginning count words")
+
+    test_dataset = count_words(massive_test_dataset)
+    write_to_local(test_dataset, f'test.json', dir_path)
+    _test_enclaps = time.time() - _test_start
+    print(f'Total test time take: {_test_enclaps}')
+    return test_dataset
 
 
 if __name__ == '__main__':
-    # 全局变量
+    # Global Variables
     tagged_word = {}
     train_size = 80
     _file_name = ''
 
-    # 这个部分处理从terminal发来的指令
+    # This part handling parameter pass by command
     if len(sys.argv) == 2:
         try:
             arg_val = int(sys.argv[1])
@@ -125,46 +132,36 @@ if __name__ == '__main__':
     print(f'Mei Jiecheng A20439795, Khiem Do A20483713 solution:\n'
           f'Training set size = {train_size}%')
 
-    # 检测最后20%的数据是否在本地
+    # Detect if the last 20% data on local, if not create one, else use it
     json_files_test = []
     _dir_path = './dataset/test'
     for filename in os.listdir(_dir_path):
         if filename.endswith('.json'):
-            filename = filename.split('.')
-            if filename[0] not in json_files_test:
-                json_files_test.append(filename[0])
-
-    if len(json_files_test) != 5:
-        test_data1, test_data2, test_data3, test_data4, test_data5 = pre_process_test_data()
+            if filename not in json_files_test:
+                json_files_test.append(filename)
+    if "test.json" not in json_files_test:
+        test_data = pre_process_test_data()
     else:
         print('Existing TEST dataset detected...')
-        test_data1 = load_from_local('test_1.json', _dir_path)
-        test_data2 = load_from_local('test_2.json', _dir_path)
-        test_data3 = load_from_local('test_3.json', _dir_path)
-        test_data4 = load_from_local('test_4.json', _dir_path)
-        test_data5 = load_from_local('test_5.json', _dir_path)
+        test_data = load_from_local('test.json', _dir_path)
 
-    # train的文件格式是 ##_#.JSON ##代表train_size,#代表label
+    # Detect if the ##% train data on local, if not create it, else use it
     json_files_train = []
     _dir_path = './dataset/train'
     for filename in os.listdir(_dir_path):
         if filename.endswith('.json'):
-            filename = filename.split('.' and '_')
-            if int(filename[0]) not in json_files_train:
-                json_files_train.append(int(filename[0]))
+            if filename not in json_files_train:
+                json_files_train.append(filename)
 
-    if train_size in json_files_train:
-        print('Existing TRAIN dataset detected...')
-        train_data1 = load_from_local(f'{train_size}_1.json', _dir_path)
-        train_data2 = load_from_local(f'{train_size}_2.json', _dir_path)
-        train_data3 = load_from_local(f'{train_size}_3.json', _dir_path)
-        train_data4 = load_from_local(f'{train_size}_4.json', _dir_path)
-        train_data5 = load_from_local(f'{train_size}_5.json', _dir_path)
+    if f"{train_size}.json" not in json_files_train:
+        train_data = pre_process_train_data(train_size)
     else:
-        train_data1, train_data2, train_data3, train_data4, train_data5 = pre_process_train_data(train_size)
+        print('Existing TRAIN dataset detected...')
+        train_data = load_from_local(f'{train_size}.json', _dir_path)
+
     print("[=TEST=] See this message means counter is working properly")
+
     # This part placehold for confusion matrix
 
     # This part placehold for Sentence with naive bayes classifier
     # P(label|S) = P(label)*P(word1|label)*P(word2|label)...
-
