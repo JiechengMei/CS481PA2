@@ -8,17 +8,26 @@ import os
 import time
 
 
+def split_words(sentence):
+    chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(', '\\']
+    for char in chars_to_remove:
+        sentence = sentence.replace(char, '')
+    sentence = sentence.split()
+    split_sentence = [element.lower() for element in sentence]
+    return split_sentence
+
+
 # delete some character and split the sentence to words
-def split_count_words(sentence, tag):
-    massive_words = []
+def split_tag_words(sentence, tag):
+    _massive_words = []
     chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(']
     for char in chars_to_remove:
         sentence = sentence.replace(char, '')
     sentence = sentence.split()
     sentence = [element.lower() for element in sentence]
     for each in sentence:
-        massive_words.append((str(each), int(tag)))
-    return massive_words
+        _massive_words.append((str(each), int(tag)))
+    return _massive_words
 
 
 # count the tag from massive dataset to store dataset
@@ -47,14 +56,14 @@ def count_words(dataset):
 
 def write_to_local(dataset, file_name, dir_results):
     full_path = os.path.join(dir_results, file_name)
-    with open(full_path, 'w') as file:
-        json.dump(dataset, file, indent=2)
+    with open(full_path, 'w') as _file:
+        json.dump(dataset, _file, indent=2)
 
 
 def load_from_local(file_name, dir_results):
     full_path = os.path.join(dir_results, file_name)
-    with open(full_path, 'r') as file:
-        data_dict = json.load(file)
+    with open(full_path, 'r') as _file:
+        data_dict = json.load(_file)
     return data_dict
 
 
@@ -74,40 +83,31 @@ def pre_process_train_data(t_size: int):
         summary = row.iloc[1]
         text = row.iloc[2]
         sentence = f'{summary} {text}'
-        massive_train_dataset.extend(split_count_words(sentence, tag))
+        massive_train_dataset.extend(split_tag_words(sentence, tag))
     train_dataset = count_words(massive_train_dataset)
     write_to_local(train_dataset, f'{t_size}.json', dir_path)
     _train_enclape = time.time() - _train_start
-    print(f"total TRAIN time take: {_train_enclape}")
+    print(f"    TRAIN dataset build, time: {_train_enclape:2f} seconds")
     return train_dataset
 
 
 def pre_process_test_data():
     dir_path = './dataset/test'
-    Reviews_dataset = pd.read_csv('dataset/Reviews.csv')
-    # remove useless column
-    Reviews_dataset = Reviews_dataset[['Score', 'Summary', 'Text']]
-    # get last 20% of data
-    test_data = Reviews_dataset[int(len(Reviews_dataset)*0.8):]
+    _Reviews_dataset = pd.read_csv('dataset/Reviews.csv')
+    _Reviews_dataset = _Reviews_dataset[['Score', 'Summary', 'Text']]
+    test_data = _Reviews_dataset[int(len(_Reviews_dataset)*0.8):]
     _test_start = time.time()
-    massive_test_dataset = []
-    for i in range(len(test_data)):
-        # get the row information
-        row = test_data.iloc[i]
-        tag = row.iloc[0]
-        summary = row.iloc[1]
-        text = row.iloc[2]
-        # concat two sentence together
-        sentence = f"{summary} {text}"
-        # split the words and count the words
-        massive_test_dataset.extend(split_count_words(sentence, tag))
-        test_result = count_words(massive_test_dataset)
-        # empty the words list for next row
-        massive_test_dataset = []
-        # write dataset to local
-        write_to_local(test_result, f'test{i}.json', dir_path)
+    data_for_csv = []
+    for i, r in test_data.iterrows():
+        tag = r['Score']
+        sentence = f'{r["Summary"]} {r["Text"]}'
+        words = split_words(sentence)
+        data_for_csv.append([words, tag])
+    test_data = pd.DataFrame(data_for_csv, columns=["Words", "Score"])
+    test_data.to_csv(os.path.join(dir_path, "test.csv"), index=False)
     _test_enclaps = time.time() - _test_start
-    print(f'Total TEST time take: {_test_enclaps}')
+    print(f'    TEST dataset build, time: {_test_enclaps:2f} seconds')
+    return test_data
 
 
 if __name__ == '__main__':
@@ -129,19 +129,6 @@ if __name__ == '__main__':
     print(f'Mei Jiecheng A20439795, Khiem Do A20483713 solution:\n'
           f'Training set size = {train_size}%')
 
-    # # Detect if the last 20% data on local, if not create one, else use it
-    # json_files_test = []
-    # _dir_path = './dataset/test'
-    # for filename in os.listdir(_dir_path):
-    #     if filename.endswith('.json'):
-    #         if filename not in json_files_test:
-    #             json_files_test.append(filename)
-    # if "test.json" not in json_files_test:
-    #     test_data = pre_process_test_data()
-    # else:
-    #     print('Existing TEST dataset detected...')
-    #     test_data = load_from_local('test.json', _dir_path)
-
     # Detect if the ##% train data on local, if not create it, else use it
     print("Training Classifier...")
     json_files_train = []
@@ -154,13 +141,38 @@ if __name__ == '__main__':
     if f"{train_size}.json" not in json_files_train:
         train_data = pre_process_train_data(train_size)
     else:
-        print('Existing TRAIN dataset detected...')
+        print('     Existing TRAIN dataset detected...')
         train_data = load_from_local(f'{train_size}.json', _dir_path)
+    # IMPORTANT:
+    # this part is pre-process for the V size and P(label) part
+    V = len(train_data)
+    num_label_1 = sum(x['one'] for x in train_data.values())
+    num_label_2 = sum(x['two'] for x in train_data.values())
+    num_label_3 = sum(x['three'] for x in train_data.values())
+    num_label_4 = sum(x['four'] for x in train_data.values())
+    num_label_5 = sum(x['five'] for x in train_data.values())
+    num_total = sum(x['total'] for x in train_data.values())
+    P_label_1 = num_label_1 / num_total
+    P_label_2 = num_label_2 / num_total
+    P_label_3 = num_label_3 / num_total
+    P_label_4 = num_label_4 / num_total
+    P_label_5 = num_label_5 / num_total
 
     print("Testing classifier...")
-    pre_process_test_data()
+    _dir_path = './dataset/test'
+    csv_test_file = []
+    for filename in os.listdir(_dir_path):
+        if filename.endswith('.csv'):
+            csv_test_file.append(filename)
+    if filename != "test.csv":
+        test_dataset = pre_process_test_data()
+    else:
+        print('     Existing TEST dataset detected...')
+        test_dataset = pd.read_csv(os.path.join(_dir_path, "test.csv"))
+
+
+
 
     # This part placehold for confusion matrix
-
     # This part placehold for Sentence with naive bayes classifier
     # P(label|S) = P(label)*P(word1|label)*P(word2|label)...
