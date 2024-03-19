@@ -75,20 +75,20 @@ def pre_process_train_data(t_size: int):
     data_train = df[:int(len(df) * t_size_f)]
     _train_start = time.time()
     train_data_simplify = data_train[["Score", "Summary", "Text"]]
-    train_dataset = pd.DataFrame(train_data_simplify)
+    _train_dataset = pd.DataFrame(train_data_simplify)
     massive_train_dataset = []
-    for i in range(1, len(train_dataset)):
-        row = train_dataset.iloc[i]
-        tag = row.iloc[0]
-        summary = row.iloc[1]
-        text = row.iloc[2]
+    for i in range(1, len(_train_dataset)):
+        _row = _train_dataset.iloc[i]
+        tag = _row.iloc[0]
+        summary = _row.iloc[1]
+        text = _row.iloc[2]
         sentence = f'{summary} {text}'
         massive_train_dataset.extend(split_tag_words(sentence, tag))
-    train_dataset = count_words(massive_train_dataset)
-    write_to_local(train_dataset, f'{t_size}.json', dir_path)
+    _train_dataset = count_words(massive_train_dataset)
+    write_to_local(_train_dataset, f'{t_size}.json', dir_path)
     _train_enclape = time.time() - _train_start
     print(f"    TRAIN dataset build, time: {_train_enclape:2f} seconds")
-    return train_dataset
+    return _train_dataset
 
 
 def pre_process_test_data():
@@ -101,8 +101,8 @@ def pre_process_test_data():
     for i, r in test_data.iterrows():
         tag = r['Score']
         sentence = f'{r["Summary"]} {r["Text"]}'
-        words = split_words(sentence)
-        data_for_csv.append([words, tag])
+        _words = split_words(sentence)
+        data_for_csv.append([_words, tag])
     test_data = pd.DataFrame(data_for_csv, columns=["Words", "Score"])
     test_data.to_csv(os.path.join(dir_path, "test.csv"), index=False)
     _test_enclaps = time.time() - _test_start
@@ -115,6 +115,13 @@ if __name__ == '__main__':
     tagged_word = {}
     train_size = 80
     _file_name = ''
+    n_to_str = {
+        1: "one",
+        2: "two",
+        3: "three",
+        4: "four",
+        5: "five"
+    }
 
     # This part handling parameter pass by command
     if len(sys.argv) == 2:
@@ -152,11 +159,18 @@ if __name__ == '__main__':
     num_label_4 = sum(x['four'] for x in train_data.values())
     num_label_5 = sum(x['five'] for x in train_data.values())
     num_total = sum(x['total'] for x in train_data.values())
+    num_label = [num_label_1, num_label_2, num_label_3, num_label_4, num_label_5]
     P_label_1 = num_label_1 / num_total
     P_label_2 = num_label_2 / num_total
     P_label_3 = num_label_3 / num_total
     P_label_4 = num_label_4 / num_total
     P_label_5 = num_label_5 / num_total
+    P_label = [P_label_1, P_label_2, P_label_3, P_label_4, P_label_5]
+    # the Confusion Matrix will be following this order
+    #   Actual\Predict  True   False
+    #       True        0       0       # First row [0,0] indicate first row (true, false), 0 will increment future
+    #       False       0       0
+    Confusion_Matrix = [[[0, 0] for _ in range(2)] for _ in range(5)]
 
     print("Testing classifier...")
     _dir_path = './dataset/test'
@@ -170,9 +184,21 @@ if __name__ == '__main__':
         print('     Existing TEST dataset detected...')
         test_dataset = pd.read_csv(os.path.join(_dir_path, "test.csv"))
 
+    # testing and build up the naive bayes with add 1 smoothing
+    for idx, row in test_dataset.iterrows():
+        words, Actual_label = row["Words"], row["Score"]
+        for lbl in range(1, 6):
+            curr_label = n_to_str.get(lbl)
+            for word in words:
+                # if word in dataset, it will return the dict to words_occur, else return all with 0
+                words_occur = train_data.get(word, {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0})
+                word_occur_with_label = words_occur.get(curr_label)
+                P_label[lbl-1] *= (word_occur_with_label + 1) / (num_label[lbl-1] + V)
+        P_max_index = P_label.index(max(P_label))
+        Predict_label = P_max_index + 1
+        for matrix in Confusion_Matrix:
+            print()
+            # placehold for update confusion matrix
 
-
-
-    # This part placehold for confusion matrix
     # This part placehold for Sentence with naive bayes classifier
     # P(label|S) = P(label)*P(word1|label)*P(word2|label)...
