@@ -8,12 +8,65 @@ import os
 import time
 
 
+def CM_deduction(_CM, _label):
+    _TP = _TN = _FP = _FN = 0
+    for i in range(len(_CM)):
+        for j in range(len(_CM[i])):
+            if i == j and i == _label:
+                _TP += _CM[i][j]
+            elif i == _label and j != _label:
+                _FN += _CM[i][j]
+            elif i != _label and j == _label:
+                _FP += _CM[i][j]
+            elif i != _label and j != _label:
+                _TN += _CM[i][j]
+    return [_TP, _FN, _FP, _TN]
+
+
+def s_cm_eval(_TP, _FN, _FP, _TN):
+    _sensitive = round(_TP / (_TP + _FN), 5) if _TP + _FN != 0 else 0
+    _specificity = round(_TN / (_TN + _FP), 5) if _TN + _FP != 0 else 0
+    _precision = round(_TP / (_TP + _FP), 5) if _TP + _FP != 0 else 0
+    _n_predictive = round(_TN / (_TN + _FN), 5) if _TN + _FN != 0 else 0
+    _accurancy = round((_TP + _TN) / (_TP + _TN + _FP + _FN), 5) if _TP + _TN + _FP + _FN != 0 else 0
+    _f_score = round(2 * ((_precision * _sensitive) / (_precision + _sensitive)), 5) if _precision+_sensitive != 0 else 0
+    return [_sensitive, _specificity, _precision, _n_predictive, _accurancy, _f_score]
+
+
+def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
+    # predict variable will initial all 5 of the P(label)
+    predict = p_label
+    # results will store predict and actual label for future adding to Big_CM
+    _results = []
+    # get the row data
+    for _, _row in list_of_words.iterrows():
+        # type of data: Array, Int
+        _Test_words, _Act_label = _row['Words'], _row['Score']
+        # loop all five labels
+        for _lbl in range(1, 6):
+            # using enum easy to retrive the json data by label
+            _curr_label = n_to_str.get(_lbl)
+            # loop every word from row with the previous label
+            for _word in _Test_words:
+                # get the words with label
+                words_occur = dataset.get(_word, {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0})
+                words_occur_with_label = words_occur.get(_curr_label)
+                # calculate the P value with add-1 smoothing
+                predict[_lbl - 1] *= (words_occur_with_label + 1) / (n_label[_lbl - 1] + V_size)
+        # will get the max number location
+        p_max_idx = predict.index(max(predict))
+        # concat two label [actual, predict] for future adding to CM
+        _results.append([p_max_idx, int(_Act_label - 1), predict])
+    # once concat all the result, returns to main
+    return _results
+
+
 def split_words(sentence):
     chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(', '\\']
     for char in chars_to_remove:
         sentence = sentence.replace(char, '')
     sentence = sentence.split()
-    split_sentence = [element.lower() for element in sentence]
+    split_sentence = [element for element in sentence]
     return split_sentence
 
 
@@ -24,7 +77,7 @@ def split_tag_words(sentence, tag):
     for char in chars_to_remove:
         sentence = sentence.replace(char, '')
     sentence = sentence.split()
-    sentence = [element.lower() for element in sentence]
+    sentence = [element for element in sentence]
     for each in sentence:
         _massive_words.append((str(each), int(tag)))
     return _massive_words
@@ -34,23 +87,21 @@ def split_tag_words(sentence, tag):
 def count_words(dataset):
     store_data = {}
     for x in dataset:
-        word, tag = x[0], x[1]
-        if not isinstance(word, str):
-            word = str(word)
-        if word not in store_data:
-            store_data[word] = {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0}
+        _word, tag = x[0], x[1]
+        if _word not in store_data:
+            store_data[_word] = {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0}
         # total count
-        store_data[word]["total"] += 1
+        store_data[_word]["total"] += 1
         if tag == 1:
-            store_data[word]["one"] += 1
+            store_data[_word]["one"] += 1
         elif tag == 2:
-            store_data[word]["two"] += 1
+            store_data[_word]["two"] += 1
         elif tag == 3:
-            store_data[word]["three"] += 1
+            store_data[_word]["three"] += 1
         elif tag == 4:
-            store_data[word]["four"] += 1
+            store_data[_word]["four"] += 1
         elif tag == 5:
-            store_data[word]["five"] += 1
+            store_data[_word]["five"] += 1
     return store_data
 
 
@@ -87,7 +138,6 @@ def pre_process_train_data(t_size: int):
     _train_dataset = count_words(massive_train_dataset)
     write_to_local(_train_dataset, f'{t_size}.json', dir_path)
     _train_enclape = time.time() - _train_start
-    print(f"    TRAIN dataset build, time: {_train_enclape:2f} seconds")
     return _train_dataset
 
 
@@ -95,7 +145,7 @@ def pre_process_test_data():
     dir_path = './dataset/test'
     _Reviews_dataset = pd.read_csv('dataset/Reviews.csv')
     _Reviews_dataset = _Reviews_dataset[['Score', 'Summary', 'Text']]
-    test_data = _Reviews_dataset[int(len(_Reviews_dataset)*0.8):]
+    test_data = _Reviews_dataset[int(len(_Reviews_dataset) * 0.8):]
     _test_start = time.time()
     data_for_csv = []
     for i, r in test_data.iterrows():
@@ -106,7 +156,6 @@ def pre_process_test_data():
     test_data = pd.DataFrame(data_for_csv, columns=["Words", "Score"])
     test_data.to_csv(os.path.join(dir_path, "test.csv"), index=False)
     _test_enclaps = time.time() - _test_start
-    print(f'    TEST dataset build, time: {_test_enclaps:2f} seconds')
     return test_data
 
 
@@ -170,9 +219,10 @@ if __name__ == '__main__':
     #   Actual\Predict  True   False
     #       True        0       0       # First row [0,0] indicate first row (true, false), 0 will increment future
     #       False       0       0
-    Confusion_Matrix = [[[0, 0] for _ in range(2)] for _ in range(5)]
+    Big_CM = [[0 for _ in range(5)] for _ in range(5)]
 
     print("Testing classifier...")
+    # load test data if existing
     _dir_path = './dataset/test'
     csv_test_file = []
     for filename in os.listdir(_dir_path):
@@ -184,21 +234,69 @@ if __name__ == '__main__':
         print('     Existing TEST dataset detected...')
         test_dataset = pd.read_csv(os.path.join(_dir_path, "test.csv"))
 
-    # testing and build up the naive bayes with add 1 smoothing
-    for idx, row in test_dataset.iterrows():
-        words, Actual_label = row["Words"], row["Score"]
-        for lbl in range(1, 6):
-            curr_label = n_to_str.get(lbl)
-            for word in words:
-                # if word in dataset, it will return the dict to words_occur, else return all with 0
-                words_occur = train_data.get(word, {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0})
-                word_occur_with_label = words_occur.get(curr_label)
-                P_label[lbl-1] *= (word_occur_with_label + 1) / (num_label[lbl-1] + V)
-        P_max_index = P_label.index(max(P_label))
-        Predict_label = P_max_index + 1
-        for matrix in Confusion_Matrix:
-            print()
-            # placehold for update confusion matrix
+    # This part will do the label part
+    results = analyze_test(train_data, test_dataset, P_label, num_label, V)
+    # this is plug all result into the big_cm
+    for point in results:
+        _predict = int(point[0])
+        _actual = int(point[1])
+        Big_CM[_actual][_predict] += 1
+    # this is the small Confusion matrix list for store all the data from the Small CM
+    Small_CM = []
+    for cur_label in range(5):
+        Small_CM.append(CM_deduction(Big_CM, cur_label))
+    # this part will be handling calculation
+    small_CM_eval = []
+    for cm in Small_CM:
+        TP, FN, FP, TN = cm[0], cm[1], cm[2], cm[3]
+        small_CM_eval.append(s_cm_eval(TP, FN, FP, TN))
+
+    for info in range(5):
+        TP, FN, FP, TN = Small_CM[info][0], Small_CM[info][1], Small_CM[info][2], Small_CM[info][3]
+        sensitive = small_CM_eval[info][0]
+        specificity = small_CM_eval[info][1]
+        precision = small_CM_eval[info][2]
+        n_predictive = small_CM_eval[info][3]
+        accurancy = small_CM_eval[info][4]
+        f_score = small_CM_eval[info][5]
+        label = info + 1
+        # printing information
+        print()
+        print(f"================================== Label: {label} ==================================\n"
+              f"# of TP: {TP}\n"
+              f"# of FN: {FN}\n"
+              f"# of FP: {FP}\n"
+              f"# of TN: {TN}\n"
+              f"Sensitive: {sensitive}\n"
+              f"Specificity: {specificity}\n"
+              f"Precision: {precision}\n"
+              f"Negative Predictive: {n_predictive}\n"
+              f"Accurancy: {accurancy}\n"
+              f"F-Score: {f_score}\n"
+              f"================================== Label: {label} ==================================\n")
 
     # This part placehold for Sentence with naive bayes classifier
     # P(label|S) = P(label)*P(word1|label)*P(word2|label)...
+    while True:
+        print()
+        userSentence = input("Enter your sentence:\n"
+                             "     Sentence S:\n")
+        bow = split_words(userSentence)
+        user_P_label = P_label
+        for label in range(1, 6):
+            current_label = n_to_str.get(label)
+            for word in bow:
+                word_occur = train_data.get(word, {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0})
+                word_occur_with_label = word_occur.get(current_label)
+                user_P_label[label - 1] *= (word_occur_with_label + 1) / (num_label[label - 1] + V)
+        user_p_max_idx = user_P_label.index(max(user_P_label))
+        user_predict_label = user_p_max_idx + 1
+        print(f'was classifier as {user_predict_label}\n'
+              f'P(label 1 | S) = {user_P_label[0]}\n'
+              f'P(label 2 | S) = {user_P_label[1]}\n'
+              f'P(label 3 | S) = {user_P_label[2]}\n'
+              f'P(label 4 | S) = {user_P_label[3]}\n'
+              f'P(label 5 | S) = {user_P_label[4]}\n')
+        userSelection = input("Do you want to enter another sentence [Y/N]? (invalid input leads another run)\n")
+        if userSelection.lower() == 'n':
+            break
