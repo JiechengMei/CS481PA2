@@ -6,6 +6,7 @@ import sys
 import pandas as pd
 import os
 import time
+import mpmath as mp
 
 
 def CM_deduction(_CM, _label):
@@ -41,7 +42,7 @@ def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
     # get the row data
     for index, row in list_of_words.iterrows():
         # type of data: Array, Int
-        _Test_words, _Act_label = row['Words'], row['Score']
+        _Test_words, _Act_label = eval(row['Words']), int(row['Score'])
         # loop all five labels
         for _word in _Test_words:
             words_occur = dataset.get(_word, {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0})
@@ -54,6 +55,7 @@ def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
         p_max_idx = predict.index(max(predict))
         # concat two label [actual, predict] for future adding to CM
         _results.append([p_max_idx, int(_Act_label - 1)])
+        predict = []
         predict = p_label.copy()
     # once concat all the result, returns to main
     return _results
