@@ -280,7 +280,7 @@ if __name__ == '__main__':
         userSentence = input("Enter your sentence:\n"
                              "     Sentence S:\n")
         bow = split_words(userSentence)
-        user_P_label = P_label
+        user_P_label = P_label.copy()
         for label in range(1, 6):
             current_label = n_to_str.get(label)
             for word in bow:
@@ -295,6 +295,7 @@ if __name__ == '__main__':
               f'P(label 3 | S) = {user_P_label[2]}\n'
               f'P(label 4 | S) = {user_P_label[3]}\n'
               f'P(label 5 | S) = {user_P_label[4]}\n')
+        user_P_label = P_label.copy()
         userSelection = input("Do you want to enter another sentence [Y/N]? (invalid input leads another run)\n")
         if userSelection.lower() == 'n':
             break
