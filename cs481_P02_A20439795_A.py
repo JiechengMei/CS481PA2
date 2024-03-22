@@ -35,7 +35,7 @@ def s_cm_eval(_TP, _FN, _FP, _TN):
 
 def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
     # predict variable will initial all 5 of the P(label)
-    predict = p_label
+    predict = p_label.copy()
     # results will store predict and actual label for future adding to Big_CM
     _results = []
     # get the row data
@@ -54,6 +54,7 @@ def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
         p_max_idx = predict.index(max(predict))
         # concat two label [actual, predict] for future adding to CM
         _results.append([p_max_idx, int(_Act_label - 1)])
+        predict = p_label.copy()
     # once concat all the result, returns to main
     return _results
 
@@ -189,6 +190,7 @@ if __name__ == '__main__':
 
     if f"{train_size}.json" not in json_files_train:
         train_data = pre_process_train_data(train_size)
+        print("     Train dataset work finished...")
     else:
         print('     Existing TRAIN dataset detected...')
         train_data = load_from_local(f'{train_size}.json', _dir_path)
@@ -219,6 +221,7 @@ if __name__ == '__main__':
             csv_test_file.append(filename)
     if filename != "test.csv":
         test_dataset = pre_process_test_data()
+        print("     Test dataset work finished...")
     else:
         print('     Existing TEST dataset detected...')
         test_dataset = pd.read_csv(os.path.join(_dir_path, "test.csv"))
