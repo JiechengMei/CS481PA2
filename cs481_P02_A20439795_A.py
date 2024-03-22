@@ -39,24 +39,21 @@ def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
     # results will store predict and actual label for future adding to Big_CM
     _results = []
     # get the row data
-    for _, _row in list_of_words.iterrows():
+    for index, row in list_of_words.iterrows():
         # type of data: Array, Int
-        _Test_words, _Act_label = _row['Words'], _row['Score']
+        _Test_words, _Act_label = eval(row['Words']), row['Score']
         # loop all five labels
-        for _lbl in range(1, 6):
-            # using enum easy to retrive the json data by label
-            _curr_label = n_to_str.get(_lbl)
-            # loop every word from row with the previous label
-            for _word in _Test_words:
-                # get the words with label
+        for _word in _Test_words:
+            for _lbl in range(1, 6):
+                _curr_label = n_to_str.get(_lbl)
                 words_occur = dataset.get(_word, {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0})
                 words_occur_with_label = words_occur.get(_curr_label)
-                # calculate the P value with add-1 smoothing
                 predict[_lbl - 1] *= (words_occur_with_label + 1) / (n_label[_lbl - 1] + V_size)
+
         # will get the max number location
         p_max_idx = predict.index(max(predict))
         # concat two label [actual, predict] for future adding to CM
-        _results.append([p_max_idx, int(_Act_label - 1), predict])
+        _results.append([p_max_idx, int(_Act_label - 1)])
     # once concat all the result, returns to main
     return _results
 
@@ -124,7 +121,6 @@ def pre_process_train_data(t_size: int):
     df = pd.read_csv('dataset/Reviews.csv')
     t_size_f = t_size / 100
     data_train = df[:int(len(df) * t_size_f)]
-    _train_start = time.time()
     train_data_simplify = data_train[["Score", "Summary", "Text"]]
     _train_dataset = pd.DataFrame(train_data_simplify)
     massive_train_dataset = []
@@ -137,7 +133,6 @@ def pre_process_train_data(t_size: int):
         massive_train_dataset.extend(split_tag_words(sentence, tag))
     _train_dataset = count_words(massive_train_dataset)
     write_to_local(_train_dataset, f'{t_size}.json', dir_path)
-    _train_enclape = time.time() - _train_start
     return _train_dataset
 
 
@@ -146,16 +141,14 @@ def pre_process_test_data():
     _Reviews_dataset = pd.read_csv('dataset/Reviews.csv')
     _Reviews_dataset = _Reviews_dataset[['Score', 'Summary', 'Text']]
     test_data = _Reviews_dataset[int(len(_Reviews_dataset) * 0.8):]
-    _test_start = time.time()
     data_for_csv = []
     for i, r in test_data.iterrows():
         tag = r['Score']
         sentence = f'{r["Summary"]} {r["Text"]}'
-        _words = split_words(sentence)
-        data_for_csv.append([_words, tag])
+        words_set = split_words(sentence)
+        data_for_csv.append((words_set, tag))
     test_data = pd.DataFrame(data_for_csv, columns=["Words", "Score"])
     test_data.to_csv(os.path.join(dir_path, "test.csv"), index=False)
-    _test_enclaps = time.time() - _test_start
     return test_data
 
 
@@ -215,10 +208,6 @@ if __name__ == '__main__':
     P_label_4 = num_label_4 / num_total
     P_label_5 = num_label_5 / num_total
     P_label = [P_label_1, P_label_2, P_label_3, P_label_4, P_label_5]
-    # the Confusion Matrix will be following this order
-    #   Actual\Predict  True   False
-    #       True        0       0       # First row [0,0] indicate first row (true, false), 0 will increment future
-    #       False       0       0
     Big_CM = [[0 for _ in range(5)] for _ in range(5)]
 
     print("Testing classifier...")
@@ -242,6 +231,12 @@ if __name__ == '__main__':
         _actual = int(point[1])
         Big_CM[_actual][_predict] += 1
     # this is the small Confusion matrix list for store all the data from the Small CM
+
+    print("DEBUG Big CM")
+    for x in Big_CM:
+        print(x)
+    print("DEBUG Big CM")
+
     Small_CM = []
     for cur_label in range(5):
         Small_CM.append(CM_deduction(Big_CM, cur_label))
