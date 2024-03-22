@@ -41,12 +41,12 @@ def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
     # get the row data
     for index, row in list_of_words.iterrows():
         # type of data: Array, Int
-        _Test_words, _Act_label = eval(row['Words']), row['Score']
+        _Test_words, _Act_label = row['Words'], row['Score']
         # loop all five labels
         for _word in _Test_words:
+            words_occur = dataset.get(_word, {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0})
             for _lbl in range(1, 6):
                 _curr_label = n_to_str.get(_lbl)
-                words_occur = dataset.get(_word, {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0})
                 words_occur_with_label = words_occur.get(_curr_label)
                 predict[_lbl - 1] *= (words_occur_with_label + 1) / (n_label[_lbl - 1] + V_size)
 
@@ -60,22 +60,22 @@ def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
 
 
 def split_words(sentence):
-    chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(', '\\']
+    chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(', '/', '>', '<', '{', '}', '[', ']', '?', '@', '#', '$', '%', '`', '*', '&', '^', '_']
     for char in chars_to_remove:
         sentence = sentence.replace(char, '')
     sentence = sentence.split()
-    split_sentence = [element for element in sentence]
+    split_sentence = [element.lower() for element in sentence]
     return split_sentence
 
 
 # delete some character and split the sentence to words
 def split_tag_words(sentence, tag):
     _massive_words = []
-    chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(']
+    chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(', '/', '>', '<', '{', '}', '[', ']', '?', '@', '#', '$', '%', '`', '*', '&', '^', '_']
     for char in chars_to_remove:
         sentence = sentence.replace(char, '')
     sentence = sentence.split()
-    sentence = [element for element in sentence]
+    sentence = [element.lower() for element in sentence]
     for each in sentence:
         _massive_words.append((str(each), int(tag)))
     return _massive_words
@@ -219,7 +219,7 @@ if __name__ == '__main__':
     for filename in os.listdir(_dir_path):
         if filename.endswith('.csv'):
             csv_test_file.append(filename)
-    if filename != "test.csv":
+    if "test.csv" not in csv_test_file:
         test_dataset = pre_process_test_data()
         print("     Test dataset work finished...")
     else:
@@ -235,7 +235,7 @@ if __name__ == '__main__':
         Big_CM[_actual][_predict] += 1
     # this is the small Confusion matrix list for store all the data from the Small CM
 
-    print("DEBUG Big CM")
+    print("\nDEBUG Big CM")
     for x in Big_CM:
         print(x)
     print("DEBUG Big CM")
@@ -259,7 +259,6 @@ if __name__ == '__main__':
         f_score = small_CM_eval[info][5]
         label = info + 1
         # printing information
-        print()
         print(f"================================== Label: {label} ==================================\n"
               f"# of TP: {TP}\n"
               f"# of FN: {FN}\n"
@@ -270,17 +269,16 @@ if __name__ == '__main__':
               f"Precision: {precision}\n"
               f"Negative Predictive: {n_predictive}\n"
               f"Accurancy: {accurancy}\n"
-              f"F-Score: {f_score}\n"
-              f"================================== Label: {label} ==================================\n")
+              f"F-Score: {f_score}\n")
 
     # This part placehold for Sentence with naive bayes classifier
     # P(label|S) = P(label)*P(word1|label)*P(word2|label)...
+    user_P_label = P_label.copy()
     while True:
         print()
         userSentence = input("Enter your sentence:\n"
-                             "     Sentence S:\n")
+                             "     Sentence S:\n").lower()
         bow = split_words(userSentence)
-        user_P_label = P_label.copy()
         for label in range(1, 6):
             current_label = n_to_str.get(label)
             for word in bow:
