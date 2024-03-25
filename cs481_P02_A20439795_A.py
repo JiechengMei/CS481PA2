@@ -1,6 +1,7 @@
 # This coding exercise is done by 
 #   - Jiecheng Mei
 #   - Khiem Do
+import ast
 import json
 import sys
 import pandas as pd
@@ -42,7 +43,8 @@ def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
     # get the row data
     for index, row in list_of_words.iterrows():
         # type of data: Array, Int
-        _Test_words, _Act_label = eval(row['Words']), int(row['Score'])
+        _Test_words_str, _Act_label = row['Words'], int(row['Score'])
+        _Test_words = ast.literal_eval(_Test_words_str)
         # loop all five labels
         for _word in _Test_words:
             words_occur = dataset.get(_word, {"total": 0, "one": 0, "two": 0, "three": 0, "four": 0, "five": 0})
@@ -181,11 +183,13 @@ if __name__ == '__main__':
     print(f'Mei Jiecheng A20439795, Khiem Do A20483713 solution:\n'
           f'Training set size = {train_size}%')
     # create working directory
-    if os.path.exists("dataset"):
+    if not os.path.exists("dataset"):
         os.mkdir("dataset")
-    if os.path.exists("dataset/test"):
+        print("runnting will be terminate for this round\nPlease move Reviews.csv file into dataset folder")
+        exit(0)
+    if not os.path.exists("dataset/test"):
         os.mkdir("dataset/test")
-    if os.path.exists("dataset/train"):
+    if not os.path.exists("dataset/train"):
         os.mkdir("dataset/train")
 
     # Detect if the ##% train data on local, if not create it, else use it
