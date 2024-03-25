@@ -30,9 +30,9 @@ def s_cm_eval(_TP, _FN, _FP, _TN):
     _specificity = round(_TN / (_TN + _FP), 5) if _TN + _FP != 0 else 0
     _precision = round(_TP / (_TP + _FP), 5) if _TP + _FP != 0 else 0
     _n_predictive = round(_TN / (_TN + _FN), 5) if _TN + _FN != 0 else 0
-    _accurancy = round((_TP + _TN) / (_TP + _TN + _FP + _FN), 5) if _TP + _TN + _FP + _FN != 0 else 0
+    _accuracy = round((_TP + _TN) / (_TP + _TN + _FP + _FN), 5) if _TP + _TN + _FP + _FN != 0 else 0
     _f_score = round(2 * ((_precision * _sensitive) / (_precision + _sensitive)), 5) if _precision+_sensitive != 0 else 0
-    return [_sensitive, _specificity, _precision, _n_predictive, _accurancy, _f_score]
+    return [_sensitive, _specificity, _precision, _n_predictive, _accuracy, _f_score]
 
 
 def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
@@ -64,7 +64,7 @@ def analyze_test(dataset, list_of_words, p_label, n_label, V_size):
 
 
 def split_words(sentence):
-    chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(', '/', '>', '<', '{', '}', '[', ']', '?', '@', '#', '$', '%', '`', '*', '&', '^', '_']
+    global chars_to_remove
     for char in chars_to_remove:
         sentence = sentence.replace(char, '')
     sentence = sentence.split()
@@ -75,7 +75,7 @@ def split_words(sentence):
 # delete some character and split the sentence to words
 def split_tag_words(sentence, tag):
     _massive_words = []
-    chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(', '/', '>', '<', '{', '}', '[', ']', '?', '@', '#', '$', '%', '`', '*', '&', '^', '_']
+    global chars_to_remove
     for char in chars_to_remove:
         sentence = sentence.replace(char, '')
     sentence = sentence.split()
@@ -160,6 +160,8 @@ def pre_process_test_data():
 if __name__ == '__main__':
     # Global Variables
     tagged_word = {}
+    chars_to_remove = [',', '.', '-', '!', '\"', ':', ')', '(', '/', '>', '<', '{', '}', '[', ']', '?', '@', '#', '$',
+                       '%', '`', '*', '&', '^', '_']
     train_size = 80
     _file_name = ''
     n_to_str = {
@@ -248,10 +250,10 @@ if __name__ == '__main__':
         Big_CM[_actual][_predict] += 1
     # this is the small Confusion matrix list for store all the data from the Small CM
 
-    print("\nDEBUG Big CM")
+    print("\n================ Big CM")
     for x in Big_CM:
         print(x)
-    print("DEBUG Big CM")
+    print("================ Big CM\n")
 
     Small_CM = []
     for cur_label in range(5):
@@ -268,10 +270,11 @@ if __name__ == '__main__':
         specificity = small_CM_eval[info][1]
         precision = small_CM_eval[info][2]
         n_predictive = small_CM_eval[info][3]
-        accurancy = small_CM_eval[info][4]
+        accuracy = small_CM_eval[info][4]
         f_score = small_CM_eval[info][5]
         label = info + 1
         # printing information
+        print("Test results / Metrics")
         print(f"================================== Label: {label} ==================================\n"
               f"# of TP: {TP}\n"
               f"# of FN: {FN}\n"
@@ -281,7 +284,7 @@ if __name__ == '__main__':
               f"Specificity: {specificity}\n"
               f"Precision: {precision}\n"
               f"Negative Predictive: {n_predictive}\n"
-              f"Accurancy: {accurancy}\n"
+              f"Accuracy: {accuracy}\n"
               f"F-Score: {f_score}\n")
 
     # This part placehold for Sentence with naive bayes classifier
