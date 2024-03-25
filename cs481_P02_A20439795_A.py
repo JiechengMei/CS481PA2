@@ -180,6 +180,13 @@ if __name__ == '__main__':
             pass
     print(f'Mei Jiecheng A20439795, Khiem Do A20483713 solution:\n'
           f'Training set size = {train_size}%')
+    # create working directory
+    if os.path.exists("dataset"):
+        os.mkdir("dataset")
+    if os.path.exists("dataset/test"):
+        os.mkdir("dataset/test")
+    if os.path.exists("dataset/train"):
+        os.mkdir("dataset/train")
 
     # Detect if the ##% train data on local, if not create it, else use it
     print("Training Classifier...")
